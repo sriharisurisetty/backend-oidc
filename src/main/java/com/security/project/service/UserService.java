@@ -17,7 +17,7 @@ public class UserService {
     /**
      * Save a new user if they don't already exist by email
      */
-    public User saveUserIfNotExists(String email, String firstName, String lastName, String provider, boolean email_verified) {
+    public User saveUserIfNotExists(String email, String firstName, String lastName, String provider, boolean email_verified, String password) {
         Optional<User> existingUser = userRepository.findByEmail(email);
         long now = System.currentTimeMillis();
         int loginCount24h = 0;
@@ -42,13 +42,17 @@ public class UserService {
             user.setFirstName(firstName);
             user.setLastName(lastName);
             user.setLoginCountLast24Hours(loginCount24h);
+            user.setConsent(true);
             userRepository.save(user);
              // ensure up-to-date
             return user;
         }
-        User newUser = new User(firstName, lastName, email, provider,email_verified);
+        User newUser = new User(firstName, lastName, email, provider,email_verified, password);
+        newUser.setCreatedAt(now);
         newUser.setLoginCountLast24Hours(1);
         newUser.setLastSessionTimestamp(now);
+        newUser.setConsent(true);
+        newUser.setPassword(password);
         userRepository.save(newUser);
         return newUser;
     }

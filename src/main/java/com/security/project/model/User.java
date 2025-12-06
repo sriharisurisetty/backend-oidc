@@ -16,9 +16,19 @@ public class User {
     private long lastSessionTimestamp = 0L;
     private String providerId;
     private boolean email_verified;
+    private boolean consent;
+    private String password;
     
-    public User(String id, String firstName, String email, String lastName, long createdAt, int loginCountLast24Hours,
-			long lastSessionTimestamp, String providerId, boolean email_verified) {
+    public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public User(String id, String firstName, String lastName, String email, long createdAt, int loginCountLast24Hours,
+			long lastSessionTimestamp, String providerId, boolean email_verified, boolean consent, String password) {
 		super();
 		this.id = id;
 		this.firstName = firstName;
@@ -29,6 +39,8 @@ public class User {
 		this.lastSessionTimestamp = lastSessionTimestamp;
 		this.providerId = providerId;
 		this.email_verified = email_verified;
+		this.consent = consent;
+		this.password = password;
 	}
 
 	public String getProviderId() {
@@ -52,13 +64,14 @@ public class User {
         this.lastSessionTimestamp = 0L;
     }
 
-    public User(String firstName, String lastName, String email, String providerId, boolean email_verified) {
+    public User(String firstName, String lastName, String email, String providerId, boolean email_verified, String password) {
 		super();
 		this.lastName = lastName;
 		this.firstName = firstName;
 		this.email = email;
 		this.providerId = providerId;
 		this.email_verified = email_verified;
+		this.password = password;
 	}
 
 	public boolean isEmail_verified() {
@@ -119,7 +132,15 @@ public class User {
         this.email = email;
     }
     
-    public long getCreatedAt() {
+    public boolean isConsent() {
+		return consent;
+	}
+
+	public void setConsent(boolean consent) {
+		this.consent = consent;
+	}
+
+	public long getCreatedAt() {
         return createdAt;
     }
     
@@ -129,8 +150,9 @@ public class User {
     
     @Override
 	public String toString() {
-		return "User [id=" + id + ", firstName=" + firstName + ", email=" + email + ", createdAt=" + createdAt
-				+ ", loginCountLast24Hours=" + loginCountLast24Hours + ", lastSessionTimestamp=" + lastSessionTimestamp
-				+ ", providerId=" + providerId + ", email_verified=" + email_verified + "]";
+		return "User [id=" + id + ", firstName=" + firstName + ", lastName=" + lastName + ", email=" + email
+				+ ", createdAt=" + createdAt + ", loginCountLast24Hours=" + loginCountLast24Hours
+				+ ", lastSessionTimestamp=" + lastSessionTimestamp + ", providerId=" + providerId + ", email_verified="
+				+ email_verified + ", consent=" + consent + ", password=" + password + "]";
 	}
 }
