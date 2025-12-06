@@ -1,19 +1,27 @@
 package com.security.project.service;
 
-import com.security.project.model.User;
-import com.security.project.repository.UserRepository;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Optional;
+import com.security.project.model.AddressDTO;
+import com.security.project.model.User;
+import com.security.project.repository.AddressRepository;
+import com.security.project.repository.UserRepository;
 
 @Service
 public class UserService {
 	
     @Autowired
     private UserRepository userRepository;
-   
+    
+    @Autowired
+    private AddressRepository addressRepo;
+    
     /**
      * Save a new user if they don't already exist by email
      */
@@ -43,11 +51,13 @@ public class UserService {
             user.setLastName(lastName);
             user.setLoginCountLast24Hours(loginCount24h);
             user.setConsent(true);
+            user.setId(generateUuId());
             userRepository.save(user);
              // ensure up-to-date
             return user;
         }
         User newUser = new User(firstName, lastName, email, provider,email_verified, password);
+        newUser.setId(generateUuId());
         newUser.setCreatedAt(now);
         newUser.setLoginCountLast24Hours(1);
         newUser.setLastSessionTimestamp(now);
@@ -56,6 +66,19 @@ public class UserService {
         userRepository.save(newUser);
         return newUser;
     }
+    
+    
+    public AddressDTO saveUserAddress(AddressDTO address) {
+    	AddressDTO saveaddress = new AddressDTO();
+    	saveaddress.setCity(address.getCity());
+    	saveaddress.setStreetAddress(address.getStreetAddress());
+    	saveaddress.setCountry(address.getCountry());
+    	saveaddress.setZipCode(address.getZipCode());
+    	saveaddress.setAddressId(generateUuId());
+    	saveaddress.setCreatedAt(new Date());
+        addressRepo.save(saveaddress);
+            return saveaddress;
+        }
     
     /**
      * Find a user by email
@@ -91,4 +114,9 @@ public class UserService {
     public void deleteUser(String id) {
         userRepository.deleteById(id);
     }
+    
+    public String generateUuId() {
+
+		return UUID.randomUUID().toString();
+	}
 }

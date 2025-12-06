@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.security.project.model.AddressDTO;
 import com.security.project.model.User;
 import com.security.project.repository.UserRepository;
 import com.security.project.service.UserService;
@@ -31,18 +32,6 @@ public class Controller {
 	
 	@Autowired
 	private PasswordEncoder passwordEncoder;
-
-	@GetMapping("/hellouser")
-	public String hellouser() {
-		return "Hello User";
-
-	}
-
-	@GetMapping("/helloadmin")
-	public String helloadmin() {
-		return "Hello Admin";
-
-	}
 	@PostMapping("/login/createcustomer")
 	public ResponseEntity<Object> createUser(@RequestBody User userDTO) {
 	    User user = new User();
@@ -67,6 +56,19 @@ public class Controller {
 	    System.out.println("account created");
 	    return ResponseEntity.ok("User created successfully");
 	}
+	
+	@PostMapping("/address")
+	public AddressDTO addAddress(@RequestBody AddressDTO addressDTO) {
+	    AddressDTO address = new AddressDTO();
+	    address.setStreetAddress(addressDTO.getStreetAddress());
+	    address.setState(addressDTO.getStreetAddress());
+	    address.setCity(addressDTO.getCity());
+	    address.setZipCode(addressDTO.getZipCode());
+	    address.setCountry(addressDTO.getCountry());
+	    userService.saveUserAddress(address);
+	    return address;
+	}
+	
 
 	@GetMapping("/me")
     public Map<String, Object> getCurrentUser(@AuthenticationPrincipal OAuth2User user) {
