@@ -18,6 +18,8 @@ public class User {
     private boolean email_verified;
     private boolean consent;
     private String password;
+	private String resetToken;
+	private long resetTokenExpiry;
     
     public String getPassword() {
 		return password;
@@ -154,5 +156,21 @@ public class User {
 				+ ", createdAt=" + createdAt + ", loginCountLast24Hours=" + loginCountLast24Hours
 				+ ", lastSessionTimestamp=" + lastSessionTimestamp + ", providerId=" + providerId + ", email_verified="
 				+ email_verified + ", consent=" + consent + ", password=" + password + "]";
+	}
+
+	public String getResetToken() {
+		return resetToken;
+	}
+
+	public void setResetToken(String resetToken) {
+		this.resetToken = resetToken;
+	}
+
+	public long getResetTokenExpiry() {
+		return resetTokenExpiry;
+	}
+
+	public void setResetTokenExpiry(long resetTokenExpiry) {
+		this.resetTokenExpiry = resetTokenExpiry;
 	}
 }

@@ -8,6 +8,9 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+
 import com.security.project.model.AddressDTO;
 import com.security.project.model.User;
 import com.security.project.repository.AddressRepository;
@@ -21,6 +24,16 @@ public class UserService {
     
     @Autowired
     private AddressRepository addressRepo;
+
+    @Autowired
+    private JavaMailSender mailSender;
+    public void sendResetEmail(String to, String resetLink) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Password Reset Request");
+        message.setText("To reset your password, click the link below:\n" + resetLink + "\nIf you did not request this, please ignore this email.");
+        mailSender.send(message);
+    }
     
     /**
      * Save a new user if they don't already exist by email
