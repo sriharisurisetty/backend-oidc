@@ -7,6 +7,8 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +29,8 @@ import com.security.project.service.UserService;
 @RestController
 @RequestMapping("/api")
 public class Controller {
+	
+	Logger LOGGER = LoggerFactory.getLogger(this.getClass().getName());
 	
 	@Autowired
     private UserRepository userRepository;
@@ -75,8 +79,10 @@ public class Controller {
 		user.setPassword(passwordEncoder.encode(newPassword));
 		user.setResetToken(null);
 		user.setResetTokenExpiry(0);
+		user.setAccountLocked(false);
+		user.setFailedLoginAttempts(0);
 		userRepository.save(user);
-		return ResponseEntity.ok(Map.of("message", "Password reset successful."));
+		return ResponseEntity.ok(Map.of("message", "Password reset successful. Your account is now unlocked."));
 	}
 	
 	@PostMapping("/login/createcustomer")
@@ -99,40 +105,101 @@ public class Controller {
 	    // Consider hashing the password before saving
 	    user.setConsent(true);
 
-	    userService.saveUserIfNotExists(user.getEmail(), user.getFirstName(), user.getLastName(), null,false, user.getPassword());
+	    userService.createCustomer(user.getEmail(), user.getFirstName(), user.getLastName(), null,false, user.getPassword());
 	    return ResponseEntity.ok("User created successfully");
 	}
 	
 	@PostMapping("/login/authentication")
 	public ResponseEntity<Object> validateUser(@RequestBody LoginDetails login) {
-		 Optional<User> userVo = Optional.of(new User());
-		String email = login.getEmail();
-		String userEnteredPassword = login.getPassword();
-		userVo = userRepository.findByEmail(email);
-		String passwordDatabase = userVo.get().getPassword();
-		if(passwordEncoder.matches(userEnteredPassword, passwordDatabase)) {
-			return ResponseEntity.ok("Password is correct");
-		}
-		else {
-			return ResponseEntity.badRequest()
-	                .body(Map.of("error", "Password is not valid"));
-		}
+		 String email = login.getEmail();
+		 String userEnteredPassword = login.getPassword();
+		 Optional<User> userVo = userRepository.findByEmail(email);
+		 if (userVo.isEmpty()) {
+			 return ResponseEntity.badRequest().body(Map.of("error", "Invalid credentials"));
+		 }
+		 User user = userVo.get();
+		 if (user.isAccountLocked()) {
+			 return ResponseEntity.badRequest().body(Map.of("error", "Account locked. Please use 'Forgot Password' to unlock."));
+		 }
+		 String passwordDatabase = user.getPassword();
+		 if (passwordEncoder.matches(userEnteredPassword, passwordDatabase)) {
+			 user.setFailedLoginAttempts(0);
+			 userRepository.save(user);
+			 return ResponseEntity.ok("Password is correct");
+		 } else {
+			 int attempts = user.getFailedLoginAttempts() + 1;
+			 user.setFailedLoginAttempts(attempts);
+			 if (attempts >= 3) {
+				 user.setAccountLocked(true);
+			 }
+			 userRepository.save(user);
+			 if (user.isAccountLocked()) {
+				 return ResponseEntity.badRequest().body(Map.of("error", "Account locked. Please use 'Forgot Password' to unlock."));
+			 }
+			 return ResponseEntity.badRequest().body(Map.of("error", "Password is not valid"));
+		 }
 	}
 	
 	@PostMapping("/address")
 	public AddressDTO addAddress(@RequestBody AddressDTO addressDTO) {
-	    AddressDTO address = new AddressDTO();
-	    address.setStreetAddress(addressDTO.getStreetAddress());
-	    address.setState(addressDTO.getStreetAddress());
-	    address.setCity(addressDTO.getCity());
-	    address.setZipCode(addressDTO.getZipCode());
-	    address.setCountry(addressDTO.getCountry());
-	    userService.saveUserAddress(address);
-	    return address;
+		AddressDTO address = new AddressDTO();
+		address.setStreetAddress(addressDTO.getStreetAddress());
+		address.setState(addressDTO.getState());
+		address.setCity(addressDTO.getCity());
+		address.setZipCode(addressDTO.getZipCode());
+		address.setCountry(addressDTO.getCountry());
+		address.setLatitude(addressDTO.getLatitude());
+		address.setLongitude(addressDTO.getLongitude());
+		address.setUserId(addressDTO.getUserId()); // Map address to user
+		userService.saveUserAddress(address);
+		return address;
 	}
 	
-	
-	
+	@PostMapping("/send-otp")
+	public ResponseEntity<?> sendOtp(@RequestBody Map<String, String> body) {
+		String email = body.get("email");
+		Optional<User> userOpt = userRepository.findByEmail(email);
+		if (userOpt.isEmpty()) {
+			return ResponseEntity.badRequest().body(Map.of("error", "Email not registered."));
+		}
+		User user = userOpt.get();
+		String otp = String.valueOf((int)(Math.random() * 900000) + 100000); 
+		long expiry = Instant.now().plusSeconds(600).toEpochMilli();
+		user.setOtp(otp);
+		user.setOtpExpiry(expiry);
+		userRepository.save(user);
+		userService.storeOtpInRedis(user.getId(), otp);
+		userService.sendResetEmail(email, "Your OTP is: " + otp); 
+		return ResponseEntity.ok(Map.of("message", "OTP sent to your email address."));
+	}
+
+	@PostMapping("/verify-otp")
+	public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> body) {
+		String email = body.get("email");
+		String otp = body.get("otp");
+		Optional<User> userOpt = userRepository.findByEmail(email);
+		if (userOpt.isEmpty()) {
+			return ResponseEntity.badRequest().body(Map.of("error", "Email not registered."));
+		}
+		User user = userOpt.get();
+		String cachedOtp = userService.getOtpFromRedis(user.getId());
+		String otpToCheck = (cachedOtp != null) ? cachedOtp : user.getOtp();
+		if (otpToCheck == null || user.getOtpExpiry() < Instant.now().toEpochMilli()) {
+			return ResponseEntity.badRequest().body(Map.of("error", "OTP expired. Please request a new one."));
+		}
+		if (!otpToCheck.equals(otp)) {
+			return ResponseEntity.badRequest().body(Map.of("error", "Invalid OTP."));
+		}
+		user.setOtp(otp + "_Used");
+		user.setOtpExpiry(0);
+		user.setEmail_verified(true);
+		String familyNumber = "FAM" + UUID.randomUUID().toString();
+		user.setFamilyNumber(familyNumber);
+		userRepository.save(user);
+		userService.deleteOtpFromRedis(user.getId());
+		userService.sendFamilyNumberEmail(email, familyNumber);
+		return ResponseEntity.ok(Map.of("message", "OTP verified successfully."));
+	}
 
 	@GetMapping("/me")
     public Map<String, Object> getCurrentUser(@AuthenticationPrincipal OAuth2User user) {
@@ -151,9 +218,8 @@ public class Controller {
 			provider = "Google";
 		}
 		boolean emailVerified = (Boolean) user.getAttribute("email_verified");
-        
         // Save or retrieve user from database
-        User savedUser = userService.saveUserIfNotExists(email, firstName, lastName, provider,emailVerified, null);
+        User savedUser = userService.createCustomer(email, firstName, lastName, provider,emailVerified, null);
         return Map.of(
             "authenticated", true,
             "id", savedUser.getId(),
