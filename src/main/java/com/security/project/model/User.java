@@ -25,9 +25,18 @@ public class User {
 	private String otp;
 	private long otpExpiry;
 	private String familyNumber;
+	private String picture;
+
+	public String getPicture() {
+		return picture;
+	}
+
+	public void setPicture(String picture) {
+		this.picture = picture;
+	}
 
 	public User(String id, String firstName, String lastName, String email, long createdAt, int loginCountLast24Hours,
-			long lastSessionTimestamp, String providerId, boolean email_verified, boolean consent, String password) {
+			long lastSessionTimestamp, String providerId, boolean email_verified, boolean consent, String password, String picture) {
 		super();
 		this.id = id;
 		this.firstName = firstName;
@@ -40,6 +49,7 @@ public class User {
 		this.email_verified = email_verified;
 		this.consent = consent;
 		this.password = password;
+		this.picture = picture;
 	}
 
 	// Constructors
@@ -55,7 +65,7 @@ public class User {
 	}
 
 	public User(String firstName, String lastName, String email, String providerId, boolean email_verified,
-			String password) {
+			String password, String picture) {
 		super();
 		this.lastName = lastName;
 		this.firstName = firstName;
@@ -63,6 +73,7 @@ public class User {
 		this.providerId = providerId;
 		this.email_verified = email_verified;
 		this.password = password;
+		this.picture = picture;
 	}
 
 	public boolean isEmail_verified() {

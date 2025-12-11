@@ -43,7 +43,7 @@ public class UserService {
     /**
      * Create a new user
      */
-    public User createCustomer(String email, String firstName, String lastName, String provider, boolean email_verified, String password) {
+    public User createCustomer(String email, String firstName, String lastName, String provider, boolean email_verified, String password, String picture) {
         Optional<User> existingUser = userRepository.findByEmail(email);
         long now = System.currentTimeMillis();
         int loginCount24h = 0;
@@ -69,16 +69,18 @@ public class UserService {
             user.setLastName(lastName);
             user.setLoginCountLast24Hours(loginCount24h);
             user.setConsent(true);
+            user.setPicture(picture);
             userRepository.save(user);
             return user;
         }
-        User newUser = new User(firstName, lastName, email, provider,email_verified, password);
+        User newUser = new User(firstName, lastName, email, provider,email_verified, password, picture);
         newUser.setId(generateUuId());
         newUser.setCreatedAt(now);
         newUser.setLoginCountLast24Hours(1);
         newUser.setLastSessionTimestamp(now);
         newUser.setConsent(true);
         newUser.setPassword(password);
+        newUser.setPicture(picture);
         userRepository.save(newUser);
         LOGGER.info("UserService | createCustomer() | Customer has been created ");
         if(email_verified) {

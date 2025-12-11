@@ -24,6 +24,7 @@ import com.security.project.model.AddressDTO;
 import com.security.project.model.LoginDetails;
 import com.security.project.model.User;
 import com.security.project.repository.UserRepository;
+import com.security.project.service.BankIdService;
 import com.security.project.service.UserService;
 
 @RestController
@@ -40,6 +41,9 @@ public class Controller {
 	
 	@Autowired
 	private PasswordEncoder passwordEncoder;
+	
+	@Autowired
+	private BankIdService bankIdService;
 
 	// Forgot Password Endpoint
 	@PostMapping("/login/forgot-password")
@@ -105,7 +109,7 @@ public class Controller {
 	    // Consider hashing the password before saving
 	    user.setConsent(true);
 
-	    userService.createCustomer(user.getEmail(), user.getFirstName(), user.getLastName(), null,false, user.getPassword());
+	    userService.createCustomer(user.getEmail(), user.getFirstName(), user.getLastName(), null,false, user.getPassword(), null);
 	    return ResponseEntity.ok("User created successfully");
 	}
 	
@@ -150,6 +154,7 @@ public class Controller {
 		address.setCountry(addressDTO.getCountry());
 		address.setLatitude(addressDTO.getLatitude());
 		address.setLongitude(addressDTO.getLongitude());
+		address.setDisplayName(addressDTO.getDisplayName());
 		address.setUserId(addressDTO.getUserId()); // Map address to user
 		userService.saveUserAddress(address);
 		return address;
@@ -160,7 +165,7 @@ public class Controller {
 		String email = body.get("email");
 		Optional<User> userOpt = userRepository.findByEmail(email);
 		if (userOpt.isEmpty()) {
-			return ResponseEntity.badRequest().body(Map.of("error", "Email not registered."));
+			return ResponseEntity.badRequest().body(Map.of("error", "Email is not found"));
 		}
 		User user = userOpt.get();
 		String otp = String.valueOf((int)(Math.random() * 900000) + 100000); 
@@ -202,7 +207,7 @@ public class Controller {
 	}
 
 	@GetMapping("/me")
-    public Map<String, Object> getCurrentUser(@AuthenticationPrincipal OAuth2User user) {
+    public Map<String, Object> getGoogleUser(@AuthenticationPrincipal OAuth2User user) {
         if (user == null) {
             return Map.of("authenticated", false);
         }
@@ -210,7 +215,7 @@ public class Controller {
         String firstName = user.getAttribute("given_name");
         String lastName = user.getAttribute("family_name");
         String email = user.getAttribute("email");
-
+        String picture =  user.getAttribute("picture");
 		Object issObj = user.getAttributes().get("iss");
 		String issuer = issObj != null ? issObj.toString() : null;
 		String provider = null;
@@ -219,7 +224,7 @@ public class Controller {
 		}
 		boolean emailVerified = (Boolean) user.getAttribute("email_verified");
         // Save or retrieve user from database
-        User savedUser = userService.createCustomer(email, firstName, lastName, provider,emailVerified, null);
+        User savedUser = userService.createCustomer(email, firstName, lastName, provider,emailVerified, null, picture);
         return Map.of(
             "authenticated", true,
             "id", savedUser.getId(),
@@ -227,6 +232,18 @@ public class Controller {
             "email", savedUser.getEmail(),
             "lastSessionTimestamp", savedUser.getLastSessionTimestamp()
         );
+    }
+
+	// BankID Authentication Endpoint
+    @PostMapping("/bankid/authenticate")
+    public ResponseEntity<?> authenticateWithBankId(@RequestBody Map<String, String> body) {
+        String personalNumber = body.get("personalNumber");
+        if (personalNumber == null || personalNumber.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Personal number is required."));
+        }
+        // Call BankID API
+        ResponseEntity<String> bankIdResponse = bankIdService.authenticate(personalNumber);
+        return bankIdResponse;
     }
 
 	public static boolean validateStrongPassword(String password) {
