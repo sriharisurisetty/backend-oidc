@@ -174,7 +174,7 @@ public class Controller {
 		user.setOtpExpiry(expiry);
 		userRepository.save(user);
 		userService.storeOtpInRedis(user.getId(), otp);
-		userService.sendResetEmail(email, "Your OTP is: " + otp); 
+		userService.sendVerifyEmail(email, "Your OTP is: " + otp); 
 		return ResponseEntity.ok(Map.of("message", "OTP sent to your email address."));
 	}
 
@@ -207,31 +207,64 @@ public class Controller {
 	}
 
 	@GetMapping("/me")
-    public Map<String, Object> getGoogleUser(@AuthenticationPrincipal OAuth2User user) {
+    public Map<String, Object> getOAuthUser(@AuthenticationPrincipal OAuth2User user) {
         if (user == null) {
             return Map.of("authenticated", false);
         }
-        // Extract user information
-        String firstName = user.getAttribute("given_name");
-        String lastName = user.getAttribute("family_name");
-        String email = user.getAttribute("email");
-        String picture =  user.getAttribute("picture");
-		Object issObj = user.getAttributes().get("iss");
-		String issuer = issObj != null ? issObj.toString() : null;
-		String provider = null;
-		if(issuer.contains("google")) {
-			provider = "Google";
-		}
-		boolean emailVerified = (Boolean) user.getAttribute("email_verified");
+        
+        String provider = null;
+        Object issObj = user.getAttributes().get("iss");
+        String issuer = issObj != null ? issObj.toString() : null;
+        String firstName = null;
+        String picture = null;
+        String login = null;
+        String email = null;
+        String lastName = null;
+        // Set provider based on issuer or other attributes
+        if (issuer != null && issuer.contains("google")) {
+        // Extract user information - handle both Google and GitHub OAuth2 providers
+        firstName = user.getAttribute("given_name");
+        lastName = user.getAttribute("family_name");
+        email = user.getAttribute("email");
+        picture = user.getAttribute("picture");
+        provider = "Google";
+        }
+        else {
+        	login = user.getAttribute("login");
+        	provider = "Github";
+        	firstName = login;
+        	picture = user.getAttribute("avatar_url");
+        	email = login + "@github.local";
+        	LOGGER.warn("Email not available from OAuth provider, using login-based email: " + email);
+        }
+        boolean emailVerified = true; // Default to true, as OAuth providers verify emails
+        Object emailVerifiedObj = user.getAttribute("email_verified");
+        if (emailVerifiedObj != null) {
+            emailVerified = (Boolean) emailVerifiedObj;
+        }
+        
+        // If still no email, reject the login
+        if (email == null) {
+            LOGGER.error("No email available from OAuth provider");
+            return Map.of("authenticated", false, "error", "Email not available from OAuth provider");
+        }
         // Save or retrieve user from database
-        User savedUser = userService.createCustomer(email, firstName, lastName, provider,emailVerified, null, picture);
-        return Map.of(
-            "authenticated", true,
-            "id", savedUser.getId(),
-            "name", savedUser.getFirstName(),
-            "email", savedUser.getEmail(),
-            "lastSessionTimestamp", savedUser.getLastSessionTimestamp()
-        );
+        try {
+            User savedUser = userService.createCustomer(email, firstName, lastName, provider, emailVerified, null, picture);
+            
+            return Map.of(
+                "authenticated", true,
+                "id", savedUser.getId(),
+                "name", savedUser.getFirstName(),
+                "email", savedUser.getEmail(),
+                "provider", provider != null ? provider : "Unknown",
+                "picture", picture != null ? picture : "",
+                "lastSessionTimestamp", savedUser.getLastSessionTimestamp()
+            );
+        } catch (Exception e) {
+            LOGGER.error("Error creating/retrieving user from database", e);
+            return Map.of("authenticated", false, "error", "Failed to create user account");
+        }
     }
 
 	// BankID Authentication Endpoint

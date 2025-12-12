@@ -37,7 +37,7 @@ public class UserService {
     @Autowired
     private AddressRepository addressRepo;
 
-    @Autowired
+    @Autowired(required = false)
     private JavaMailSender mailSender;
     
     /**
@@ -111,6 +111,10 @@ public class UserService {
     }
     
     public void sendFamilyNumberEmail(String to, String familyNumber) {
+        if (mailSender == null) {
+            LOGGER.warn("UserService | sendFamilyNumberEmail() | JavaMailSender not configured, skipping email");
+            return;
+        }
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("yourdentity@services.com");
         message.setTo(to);
@@ -169,11 +173,29 @@ public class UserService {
     }
     
     public void sendResetEmail(String to, String resetLink) {
+        if (mailSender == null) {
+            LOGGER.warn("UserService | sendResetEmail() | JavaMailSender not configured, skipping email");
+            return;
+        }
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("yourdentity@services.com");
         message.setTo(to);
         message.setSubject("Password Reset Request");
-        message.setText("To reset your password, click the link below:\n" + resetLink + "\nIf you did not request this, please ignore this email.");
+        message.setText("To reset your password, use the otp below:\n" + resetLink + "\nIf you did not request this, please ignore this email.");
+        mailSender.send(message);
+        
+    }
+    
+    public void sendVerifyEmail(String to, String resetLink) {
+        if (mailSender == null) {
+            LOGGER.warn("UserService | sendVerifyEmail() | JavaMailSender not configured, skipping email");
+            return;
+        }
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("yourdentity@services.com");
+        message.setTo(to);
+        message.setSubject("Verify your email");
+        message.setText("To verify your email use the below otp\n" + resetLink + "\nIf you did not request this, please ignore this email.");
         mailSender.send(message);
         
     }

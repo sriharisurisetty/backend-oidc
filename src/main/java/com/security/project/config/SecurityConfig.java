@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 
 @Configuration
 public class SecurityConfig {
@@ -24,9 +26,13 @@ public class SecurityConfig {
                 .anyRequest().permitAll() // keep other APIs public (change to .authenticated() if you want protection)
             )
             .oauth2Login(oauth -> oauth
-                // Point the login page directly to Google's authorization endpoint
+                // Point the login page directly to OAuth authorization endpoints
                 .loginPage("/oauth2/authorization/google")
-                .defaultSuccessUrl("http://localhost:5173/success", true) // customize your post-login redirect
+                .defaultSuccessUrl("http://localhost:5173/success-login", true) // customize your post-login redirect
+                .userInfoEndpoint(userInfo -> userInfo
+                    .oidcUserService(new OidcUserService())
+                    .userService(new DefaultOAuth2UserService())
+                )
             )
              .logout(logout -> logout
              .logoutUrl("/logout")
