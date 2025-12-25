@@ -27,6 +27,9 @@ import com.security.project.repository.UserRepository;
 import com.security.project.service.BankIdService;
 import com.security.project.service.UserService;
 
+import de.mkammerer.argon2.Argon2;
+import de.mkammerer.argon2.Argon2Factory;
+
 @RestController
 @RequestMapping("/api")
 public class Controller {
@@ -44,7 +47,7 @@ public class Controller {
 	
 	@Autowired
 	private BankIdService bankIdService;
-
+	
 	// Forgot Password Endpoint
 	@PostMapping("/login/forgot-password")
 	public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
@@ -91,6 +94,8 @@ public class Controller {
 	
 	@PostMapping("/login/createcustomer")
 	public ResponseEntity<Object> createUser(@RequestBody User userDTO) {
+		Argon2 argon2 = Argon2Factory.create();
+		
 	    User user = new User();
 	    user.setFirstName(userDTO.getFirstName());
 	    user.setLastName(userDTO.getLastName());
@@ -99,14 +104,10 @@ public class Controller {
 	                .body(Map.of("error", "User exists , please use different email"));
         }
 	    user.setEmail(userDTO.getEmail());
-	    if(validateStrongPassword(userDTO.getPassword())){
-	    	user.setPassword(passwordEncoder.encode(userDTO.getPassword())); 
-	    }else {
-	    	return ResponseEntity.badRequest()
-                .body(Map.of("error", "Password must be at least 8 characters and include uppercase, lowercase, number, and special character."));
-
-	    }
-	    // Consider hashing the password before saving
+	    String password = userDTO.getPassword();
+	    String hash = argon2.hash(10, 65536, 1, password);
+	    
+	    user.setPassword(hash); 
 	    user.setConsent(true);
 
 	    userService.createCustomer(user.getEmail(), user.getFirstName(), user.getLastName(), null,false, user.getPassword(), null);
@@ -115,7 +116,8 @@ public class Controller {
 	
 	@PostMapping("/login/authentication")
 	public ResponseEntity<Object> validateUser(@RequestBody LoginDetails login) {
-		 String email = login.getEmail();
+		Argon2 argon2 = Argon2Factory.create(); 
+		String email = login.getEmail();
 		 String userEnteredPassword = login.getPassword();
 		 Optional<User> userVo = userRepository.findByEmail(email);
 		 if (userVo.isEmpty()) {
@@ -126,7 +128,7 @@ public class Controller {
 			 return ResponseEntity.badRequest().body(Map.of("error", "Account locked. Please use 'Forgot Password' to unlock."));
 		 }
 		 String passwordDatabase = user.getPassword();
-		 if (passwordEncoder.matches(userEnteredPassword, passwordDatabase)) {
+		 if (argon2.verify(passwordDatabase, userEnteredPassword)) {
 			 user.setFailedLoginAttempts(0);
 			 userRepository.save(user);
 			 return ResponseEntity.ok("Password is correct");
@@ -137,10 +139,12 @@ public class Controller {
 				 user.setAccountLocked(true);
 			 }
 			 userRepository.save(user);
+			 System.out.println("User logged in");
 			 if (user.isAccountLocked()) {
 				 return ResponseEntity.badRequest().body(Map.of("error", "Account locked. Please use 'Forgot Password' to unlock."));
 			 }
 			 return ResponseEntity.badRequest().body(Map.of("error", "Password is not valid"));
+			 
 		 }
 	}
 	
