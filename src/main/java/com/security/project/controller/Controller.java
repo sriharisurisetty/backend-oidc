@@ -129,6 +129,7 @@ public class Controller {
 		 }
 		 String passwordDatabase = user.getPassword();
 		 if (argon2.verify(passwordDatabase, userEnteredPassword)) {
+			 System.out.println("Password matched");
 			 user.setFailedLoginAttempts(0);
 			 userRepository.save(user);
 			 return ResponseEntity.ok("Password is correct");
