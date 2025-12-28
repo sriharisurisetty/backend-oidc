@@ -7,7 +7,8 @@ import org.springframework.stereotype.Service;
 public class KafkaConsumer {
 
 	@KafkaListener(topics = "oidctopic", groupId = "oidc-group")
-	public void listenToCodeDecodeKafkaTopic(String messageReceived) {
+	public void listenToKafkaTopic(String messageReceived) {
+		
 		System.out.println("Message received is " + messageReceived);
 	}
 }

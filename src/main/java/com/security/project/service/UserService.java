@@ -13,9 +13,12 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+import com.security.project.kafka.KafkaProducer;
 import com.security.project.model.AddressDTO;
 import com.security.project.model.User;
+import com.security.project.model.UserDTO;
 import com.security.project.repository.AddressRepository;
 import com.security.project.repository.UserRepository;
 import org.slf4j.Logger;
@@ -40,15 +43,19 @@ public class UserService {
     @Autowired(required = false)
     private JavaMailSender mailSender;
     
+    @Autowired
+    KafkaProducer kafkaProducer;
+    
     /**
      * Create a new user
      */
     public User createCustomer(String email, String firstName, String lastName, String provider, boolean email_verified, String password, String picture) {
         Optional<User> existingUser = userRepository.findByEmail(email);
         long now = System.currentTimeMillis();
+        User user = null;
         int loginCount24h = 0;
         if (existingUser.isPresent()) {
-            User user = existingUser.get();
+            user = existingUser.get();
             long lastSession = user.getLastSessionTimestamp();
             if (lastSession != 0L && now - lastSession < 1000) {
                 user.setLastSessionTimestamp(now);
@@ -82,6 +89,11 @@ public class UserService {
         newUser.setPassword(password);
         newUser.setPicture(picture);
         userRepository.save(newUser);
+        UserDTO userEvent = null;
+        if(!StringUtils.isEmpty(newUser)) {
+        	userEvent = new UserDTO(newUser.getFirstName(), newUser.getLastName(), newUser.getEmail());
+        }
+        kafkaProducer.sendMessageToTopic(userEvent);
         LOGGER.info("UserService | createCustomer() | Customer has been created ");
         if(email_verified) {
         	String familyNumber = "FAM" + generateRandomNumber();
